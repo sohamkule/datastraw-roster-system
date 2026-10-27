@@ -18,7 +18,7 @@ export function recommendCoverageFixes(org, roster, validation) {
         const status = roster.employeeDays[a.employeeId]?.[gap.date]?.status
         return { employeeId: emp.id, name: emp.name, status, kind: 'assigned' }
       })
-      .filter((c) => c.status && c.status !== STATUS.WORKING)
+      .filter((c) => c.status === STATUS.WEEKLY_OFF)
 
     const backupCandidates = org.employees
       .filter((emp) => {
@@ -38,8 +38,11 @@ export function recommendCoverageFixes(org, roster, validation) {
 
     const shortfall = gap.minStaffing - gap.staffing
     let explanation
+
     if (assigned.length === 1 && swapCandidates.length === 1) {
       explanation = `${assigned[0] ? idx.employeesById[assigned[0].employeeId].name : 'The only assigned employee'} is the sole resource for this brand/process. When they are unavailable on a required day, coverage cannot be met without a backup or a schedule swap.`
+    } else if (assigned.length === 1 && swapCandidates.length === 0) {
+      explanation = `${assigned[0] ? idx.employeesById[assigned[0].employeeId].name : 'The only assigned employee'} is the sole resource for this brand/process, and no eligible replacement is available.`
     } else if (assigned.length > 1 && gap.staffing > 0) {
       explanation = `Remaining assigned employees are working, but staffing is still below the minimum of ${gap.minStaffing}.`
     } else {

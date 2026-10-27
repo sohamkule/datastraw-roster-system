@@ -171,6 +171,39 @@ function eligibleBackup(idx, employeeDays, rule, date, alreadyUsed) {
   return candidates
 }
 
+function restorePreviousBackups(employeeDays, backupAssignments = []) {
+  const restored = new Set()
+
+  for (const backup of backupAssignments) {
+    const key = `${backup.employeeId}::${backup.date}`
+
+    if (restored.has(key)) continue
+    restored.add(key)
+
+    const cell = employeeDays[backup.employeeId]?.[backup.date]
+
+    // Only restore employees whose status was changed by backup duty.
+    if (!cell?.note?.startsWith('Backup coverage for ')) continue
+
+    // Use the original status saved before the backup assignment.
+    const original = backupAssignments.find(
+      (item) =>
+        item.employeeId === backup.employeeId &&
+        item.date === backup.date &&
+        item.previousStatus !== undefined &&
+        item.previousStatus !== STATUS.WORKING &&
+        !String(item.previousNote ?? '').startsWith('Backup coverage for '),
+    )
+
+    if (!original) continue
+
+    employeeDays[backup.employeeId][backup.date] = {
+      status: original.previousStatus,
+      note: original.previousNote ?? null,
+    }
+  }
+}
+
 function assignBackups(idx, employeeDays, dates) {
   const backupAssignments = []
   for (const date of dates) {
@@ -185,18 +218,26 @@ function assignBackups(idx, employeeDays, dates) {
         const [next] = eligibleBackup(idx, employeeDays, rule, date, used)
         if (!next) break
         used.add(next.id)
-        if (employeeDays[next.id][date].status !== STATUS.WORKING) {
+
+
+        const previousStatus = employeeDays[next.id][date].status
+        const previousNote = employeeDays[next.id][date].note
+
+        if (previousStatus !== STATUS.WORKING) {
           employeeDays[next.id][date] = {
             status: STATUS.WORKING,
             note: `Backup coverage for ${rule.brandId}/${rule.processId}`,
           }
         }
+
         backupAssignments.push({
           date,
           employeeId: next.id,
           brandId: rule.brandId,
           processId: rule.processId,
           reason: 'Automatic backup to meet minimum staffing',
+          previousStatus,
+          previousNote,
         })
         staffing += 1
       }
@@ -265,6 +306,7 @@ export function generateRoster(org, year, month) {
 export function applyManualChange(org, roster, employeeId, date, nextStatus, note = 'Manual edit') {
   const idx = indexOrg(org)
   const employeeDays = structuredClone(roster.employeeDays)
+  restorePreviousBackups(employeeDays, roster.backupAssignments)
   if (!employeeDays[employeeId]?.[date]) {
     throw new Error(`Unknown employee/date: ${employeeId} ${date}`)
   }
@@ -290,6 +332,7 @@ export function applyTimeOffAndReconcile(org, roster, timeOffEntry) {
   }
   const idx = indexOrg(nextOrg)
   const employeeDays = structuredClone(roster.employeeDays)
+  restorePreviousBackups(employeeDays, roster.backupAssignments)
   const status = TIME_OFF_TO_STATUS[timeOffEntry.type] ?? STATUS.UNAVAILABLE
   employeeDays[timeOffEntry.employeeId][timeOffEntry.date] = {
     status,

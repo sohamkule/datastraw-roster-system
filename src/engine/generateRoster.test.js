@@ -27,6 +27,90 @@ function miniOrg(overrides = {}) {
 }
 
 describe('generateRoster', () => {
+
+  
+  it('does not recommend an employee on approved leave as a replacement', () => {
+    const org = miniOrg({
+      employees: [
+        {
+          id: 'a',
+          name: 'Asha',
+          podId: 'p1',
+          role: 'associate',
+          preferredWeeklyOffs: [],
+          backupSkills: [],
+        },
+      ],
+    })
+
+    const roster = generateRoster(org, 2026, 10)
+    const result = applyTimeOffAndReconcile(org, roster, {
+      employeeId: 'a',
+      date: '2026-10-16',
+      type: 'planned_leave',
+      reason: 'Approved leave',
+    })
+
+    const validation = validateRoster(result.org, result.roster)
+    const recommendations = recommendCoverageFixes(
+      result.org,
+      result.roster,
+      validation,
+    )
+
+    const gap = recommendations.find((r) => r.date === '2026-10-16')
+
+    expect(gap).toBeDefined()
+    expect(gap.suggestions.some((s) => s.employeeId === 'a')).toBe(false)
+  })
+
+  it('restores a backup employee status when the backup is no longer needed', () => {
+    const org = miniOrg({
+      employees: [
+        {
+          id: 'a',
+          name: 'Asha',
+          podId: 'p1',
+          role: 'associate',
+          preferredWeeklyOffs: [],
+          backupSkills: [],
+        },
+        {
+          id: 'b',
+          name: 'Bharat',
+          podId: 'p1',
+          role: 'associate',
+          preferredWeeklyOffs: [],
+          backupSkills: ['cs'],
+        },
+      ],
+    })
+
+    const roster = generateRoster(org, 2026, 10)
+    expect(roster.employeeDays.b['2026-10-16'].status).toBe(STATUS.REST)
+
+    const leaveRoster = applyManualChange(
+      org,
+      roster,
+      'a',
+      '2026-10-16',
+      STATUS.PLANNED_LEAVE,
+    )
+
+    expect(leaveRoster.employeeDays.b['2026-10-16'].status).toBe(STATUS.WORKING)
+
+    const restoredRoster = applyManualChange(
+      org,
+      leaveRoster,
+      'a',
+      '2026-10-16',
+      STATUS.WORKING,
+    )
+
+    expect(restoredRoster.employeeDays.b['2026-10-16'].status).toBe(STATUS.REST)
+  })
+
+
   it('is deterministic for the same inputs', () => {
     const org = miniOrg()
     const first = generateRoster(org, 2026, 10)
