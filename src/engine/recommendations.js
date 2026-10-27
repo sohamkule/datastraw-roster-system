@@ -26,7 +26,7 @@ export function recommendCoverageFixes(org, roster, validation) {
         if (brand?.podId && emp.podId !== brand.podId) return false
         if (!(emp.backupSkills ?? []).includes(gap.processId)) return false
         const status = roster.employeeDays[emp.id]?.[gap.date]?.status
-        return status === STATUS.WORKING || status === STATUS.REST || status === STATUS.WEEKLY_OFF
+        return status === STATUS.WORKING || status === STATUS.REST
       })
       .map((emp) => ({
         employeeId: emp.id,

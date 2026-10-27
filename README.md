@@ -28,7 +28,7 @@ Browser-based operations tool for monthly roster planning across employees, pods
 
 ## Run locally
 
-Requires Node.js 18+.
+Requires Node.js 20.19+ or 22.12+
 
 ```bash
 npm install

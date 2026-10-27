@@ -10,16 +10,6 @@ function issue(severity, code, fields) {
   return { severity, code, ...fields }
 }
 
-function coveringIds(roster, date, brandId, processId) {
-  const cell = roster.coverage?.[date]?.[ruleKey(brandId, processId)]
-  if (cell) {
-    return [...new Set([...(cell.primaryEmployeeIds ?? []), ...(cell.backupEmployeeIds ?? [])])]
-  }
-  const primaries = []
-  // Independent reconstruction from statuses + assignments + backups
-  return primaries
-}
-
 function reconstructCovering(idx, roster, date, rule) {
   const primaries = assignedEmployees(idx, rule.brandId, rule.processId)
     .filter((a) => canCountTowardCoverage(roster.employeeDays[a.employeeId]?.[date]?.status))
@@ -192,4 +182,4 @@ export function validateRoster(org, roster) {
   }
 }
 
-export { coveringIds, reconstructCovering }
+export { reconstructCovering }

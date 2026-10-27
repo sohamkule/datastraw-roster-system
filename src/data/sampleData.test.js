@@ -4,15 +4,16 @@ import { validateRoster } from '../engine/validateRoster.js'
 import { createSampleOrg, uniqueBrandCountByStaffing } from './sampleData.js'
 
 describe('sample organization', () => {
-  it('has at least 30 employees and ~80% single-employee brands', () => {
+  it('has 33 employees and exactly 80% single-employee brands', () => {
     const org = createSampleOrg()
     const stats = uniqueBrandCountByStaffing(org)
-    expect(stats.employees).toBeGreaterThanOrEqual(30)
-    expect(stats.brands).toBeGreaterThanOrEqual(8)
-    expect(stats.single / stats.brands).toBeGreaterThanOrEqual(0.75)
-    expect(stats.multi).toBeGreaterThanOrEqual(3)
-  })
 
+    expect(stats.employees).toBe(33)
+    expect(stats.brands).toBe(20)
+    expect(stats.single).toBe(16)
+    expect(stats.multi).toBe(4)
+    expect(stats.single / stats.brands).toBe(0.8)
+  })
   it('includes overlapping process assignments and employees on multiple processes', () => {
     const org = createSampleOrg()
     const byBrandProcess = new Map()

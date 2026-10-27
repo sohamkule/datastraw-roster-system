@@ -28,7 +28,7 @@ function miniOrg(overrides = {}) {
 
 describe('generateRoster', () => {
 
-  
+
   it('does not recommend an employee on approved leave as a replacement', () => {
     const org = miniOrg({
       employees: [
@@ -109,6 +109,97 @@ describe('generateRoster', () => {
 
     expect(restoredRoster.employeeDays.b['2026-10-16'].status).toBe(STATUS.REST)
   })
+
+
+  it('restores backup status after repeated leave and return changes', () => {
+    const org = miniOrg({
+      employees: [
+        {
+          id: 'a',
+          name: 'Asha',
+          podId: 'p1',
+          role: 'associate',
+          preferredWeeklyOffs: [],
+          backupSkills: [],
+        },
+        {
+          id: 'b',
+          name: 'Bharat',
+          podId: 'p1',
+          role: 'associate',
+          preferredWeeklyOffs: [],
+          backupSkills: ['cs'],
+        },
+      ],
+    })
+
+    const initial = generateRoster(org, 2026, 10)
+    const firstLeave = applyManualChange(
+      org, initial, 'a', '2026-10-16', STATUS.PLANNED_LEAVE,
+    )
+    expect(firstLeave.employeeDays.b['2026-10-16'].status).toBe(STATUS.WORKING)
+
+    const firstReturn = applyManualChange(
+      org, firstLeave, 'a', '2026-10-16', STATUS.WORKING,
+    )
+    expect(firstReturn.employeeDays.b['2026-10-16'].status).toBe(STATUS.REST)
+
+    const secondLeave = applyManualChange(
+      org, firstReturn, 'a', '2026-10-16', STATUS.PLANNED_LEAVE,
+    )
+    expect(secondLeave.employeeDays.b['2026-10-16'].status).toBe(STATUS.WORKING)
+
+    const secondReturn = applyManualChange(
+      org, secondLeave, 'a', '2026-10-16', STATUS.WORKING,
+    )
+    expect(secondReturn.employeeDays.b['2026-10-16'].status).toBe(STATUS.REST)
+    expect(validateRoster(org, secondReturn).isValid).toBe(true)
+  })
+
+  it('does not recommend weekly-off employees as automatic backup candidates', () => {
+    const org = miniOrg({
+      employees: [
+        {
+          id: 'a',
+          name: 'Asha',
+          podId: 'p1',
+          role: 'associate',
+          preferredWeeklyOffs: [],
+          backupSkills: [],
+        },
+        {
+          id: 'b',
+          name: 'Bharat',
+          podId: 'p1',
+          role: 'associate',
+          preferredWeeklyOffs: [],
+          backupSkills: ['cs'],
+        },
+      ],
+      timeOff: [
+        {
+          employeeId: 'a',
+          date: '2026-10-16',
+          type: 'planned_leave',
+          reason: 'Approved leave',
+        },
+      ],
+    })
+
+    const roster = generateRoster(org, 2026, 10)
+
+    // Force Bharat to be unavailable for automatic backup duty.
+    const edited = applyManualChange(
+      org, roster, 'b', '2026-10-16', STATUS.WEEKLY_OFF,
+    )
+    const validation = validateRoster(org, edited)
+    const recommendations = recommendCoverageFixes(org, edited, validation)
+    const gap = recommendations.find((item) => item.date === '2026-10-16')
+
+    expect(gap).toBeDefined()
+    expect(gap.suggestions.some((item) => item.employeeId === 'b' && item.kind === 'backup')).toBe(false)
+  })
+
 
 
   it('is deterministic for the same inputs', () => {
